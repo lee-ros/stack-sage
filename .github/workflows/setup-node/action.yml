@@ -1,23 +1,36 @@
-name: setup-node
-description: "Setup Node.js - Cache dependencies - Install dependencies"
-runs:
-  using: "composite"
-  steps:
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: 20
-    
-    - name: Cache dependencies
-      id: cache-dependencies
-      uses: actions/cache@v4
-      with:
-        path: node_modules
-        key: node_modules-${{ hashFiles('**/package-lock.json') }}
+name: setup-node-pnpm
 
-    - name: Install dependencies
-      shell: bash
-      if: steps.cache-dependencies.outputs.cache-hit != 'true'
-      run: npm ci
+on:
+  workflow_call:
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
       
-      
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8
+          run_install: false
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: node_modules-${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            node_modules-${{ runner.os }}-
+
+      - name: Install dependencies with pnpm
+        shell: bash
+        if: steps.cache-node-modules.outputs.cache-hit != 'true'
+        run: pnpm install --no-frozen-lockfile 
